@@ -27,7 +27,7 @@ git clone https://github.com/celoramos/skill-claude.git
 cp -r skill-claude/pr-preview ~/.claude/skills/
 ```
 
-No Windows, a pasta fica em `%USERPROFILE%\.claude\skills\` e os scripts rodam no Git Bash.
+No Windows, a pasta fica em `%USERPROFILE%\.claude\skills\` e os scripts rodam no Git Bash. Num agente que só tem PowerShell, a skill chama o `bash.exe` do Git para Windows.
 
 A skill precisa de `git` e `bash`. O push usa as credenciais do próprio Git. Para abrir o PR/MR e ler os checks, ela usa o `gh` (GitHub) ou o `glab` (GitLab), com login feito.
 
@@ -39,6 +39,16 @@ Peça em linguagem natural, sem citar a plataforma:
 - "commita tudo e abre o PR"
 - "manda pro ar"
 
+Ou chame direto com `/pr-preview`.
+
+**Com muitas skills instaladas,** o Claude Code mostra ao modelo só o nome de cada uma, sem a descrição, e a skill deixa de ser acionada pelo pedido. Num teste com centenas de skills, "sobe isso e já faz o merge pra produção" não acionou a `pr-preview`, e o Claude fez merge na main e push direto, sem PR e sem perguntar. Se for o seu caso, ponha uma linha no seu `CLAUDE.md`:
+
+```markdown
+- Commitar, fazer push, abrir ou atualizar PR/MR, subir para o preview ou mandar para produção: invoque a skill `pr-preview` antes do primeiro comando git.
+```
+
+Com essa linha, o mesmo pedido acionou a skill na primeira chamada.
+
 ## Estrutura
 
 ```
@@ -46,13 +56,30 @@ pr-preview/
 ├── SKILL.md              fluxo em 6 etapas
 ├── scripts/detectar.sh   detecta host, plataforma, stack e regras do time
 ├── references/           plataformas.md, git-hosts.md, empresas.md
-└── evals/                4 casos de teste no formato do `claude plugin eval`
+└── evals/                5 casos de teste no formato do `claude plugin eval`
 testes/
-├── harness/              monta ambientes falsos, dá a nota e testa o acionamento
+├── detectar.test.mjs     testes do detectar.sh em repositórios montados na hora
+├── harness/              monta ambientes falsos, roda o Claude, dá a nota e testa o acionamento
 └── trigger/              frases para testar o acionamento da descrição
 ```
 
 ## Testes
+
+### Detector (`testes/detectar.test.mjs`)
+
+```bash
+node --test testes/detectar.test.mjs
+```
+
+São 13 testes, sem rede e sem LLM, em repositórios montados numa pasta temporária. Eles cobrem:
+
+- scripts com `:` no nome e `{}` no valor, com e sem `node` e `python` na máquina;
+- repositórios com mais de uma stack;
+- detecção por um arquivo só (`pyproject.toml`, `wrangler.toml`, `commitlint.config.js`);
+- tickets em branches locais e em commits;
+- HEAD solto, merge com conflito e pasta fora de um repositório.
+
+No Windows, os testes usam o bash do Git para Windows.
 
 ### Casos (`pr-preview/evals/`)
 
@@ -64,15 +91,23 @@ Os casos rodam em repositórios falsos. O `gh`, o `glab` e o `vercel` são simul
 | `gitlab-netlify-regras-do-time` | um MR no GitLab com template, commitlint, ticket e label do time |
 | `cloudflare-falha-so-no-ci` | um teste que passa na máquina local e quebra no CI por causa do fuso horário |
 | `vercel-variavel-faltando-no-preview` | uma variável ausente no escopo Preview da Vercel, que se resolve na configuração e não no código |
+| `vercel-pede-producao-junto` | o preview e o merge pedidos de uma vez ("sobe isso e já faz o merge pra produção"): o merge espera um "sim" dado depois do preview |
 
 ```bash
-bash testes/harness/montar.sh <caso> <destino>   # cria o repo, o remoto e as ferramentas simuladas
-# rode o Claude em <destino>/repo com <destino>/bin no começo do PATH
-# e salve a resposta final em <destino>/resposta.md
-node testes/harness/avaliar.js <destino> <caso> grading.json
+bash testes/harness/rodar.sh <caso> <destino>               # com a skill, chamada como /pr-preview
+bash testes/harness/rodar.sh <caso> <destino> --sem-skill   # sem ela
 ```
 
-Na última rodada, a skill atendeu 33 de 33 critérios, contra 32 de 33 sem ela. O Claude sem a skill já faz quase tudo bem. O que a skill acrescenta é o conhecimento de cada plataforma (onde fica a URL do preview, como ler os logs) e o relatório num formato fixo.
+O `rodar.sh` monta o ambiente (`montar.sh`) e roda o `claude -p` em `<destino>/repo`, com as ferramentas simuladas no começo do PATH. Depois grava a resposta, as chamadas de ferramenta e o tempo (`resumir.js`) e dá a nota (`avaliar.js`, em `<destino>/grading.json`). Os hooks do usuário ficam desligados e a sessão não é salva, para o contexto pessoal não entrar no teste. `MODELO` e `TETO_USD` trocam o modelo e o gasto máximo.
+
+Na rodada dos 4 primeiros casos, a skill atendeu 33 de 33 critérios, contra 32 de 33 sem ela. O Claude sem a skill já faz quase tudo bem. O que a skill acrescenta é o conhecimento de cada plataforma (onde fica a URL do preview, como ler os logs) e o relatório num formato fixo.
+
+O caso de produção mostra a diferença maior:
+
+- **Sem a skill acionada:** nas duas rodadas, o Claude fez merge na main e push direto, sem PR e sem perguntar (0 de 5).
+- **Com a skill:** abriu o PR, conferiu os checks e o preview e pediu o "sim" (5 de 5).
+
+Na mesma rodada, o caso do cupom continuou em 10 de 10.
 
 ### Acionamento (`testes/trigger/`)
 
@@ -84,7 +119,7 @@ O `run_trigger.js` troca a descrição da skill instalada, roda `claude -p` com 
 node testes/harness/run_trigger.js --eval-set testes/trigger/eval_set.json --skill-dir ~/.claude/skills/pr-preview
 ```
 
-A descrição atual acionou certo em 24 das 26 frases. Duas reescritas foram testadas e ficaram em 23.
+A descrição atual acionou certo em 24 das 26 frases. Duas reescritas foram testadas e ficaram em 23. Essa medida só vale quando o Claude Code mostra a descrição ao modelo. Com centenas de skills instaladas, ele mostra só o nome (veja "Uso").
 
 ## Licença
 
