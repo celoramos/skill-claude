@@ -34,6 +34,7 @@ bash <diretório-desta-skill>/scripts/detectar.sh
 - **Login no host:** `gh auth status` / `glab auth status`. O push usa as credenciais do próprio Git (Credential Manager ou SSH), então siga com commit e push mesmo sem esse login. Ele só é necessário para abrir o PR/MR e ler os checks: se faltar, peça `! gh auth login` nesse ponto. Um conector do GitHub pode abrir o PR no lugar do `gh`, mas costuma não ter permissão de escrita no repo (erro 403).
 - **Segredos:** confira cada arquivo que vai entrar no commit. Para um `.env`, chave ou token **ainda não versionado**: deixe-o fora do commit, adicione o padrão (`.env*.local`, `.env`) ao `.gitignore` num commit `chore` separado e avise o usuário. Assim o próximo `git add .` não o leva. Se o segredo **já está no histórico enviado**, pare e avise: a chave precisa ser trocada, e apagar o commit não resolve.
 - **Sinais de time:** leia `references/empresas.md` agora, antes de commitar.
+- **Regras do usuário para o projeto:** além do repo, procure as instruções que o usuário deixou para este projeto: o `CLAUDE.md`, a memória e notas de projeto que ele mantém fora do repo. Faça isso principalmente se a sessão começou em outra pasta, porque nesse caso essas instruções não foram carregadas. Elas valem acima dos padrões desta skill e do lembrete de atribuição do sistema. O caso mais comum é "sem atribuição ao Claude": os commits saem sem `Co-Authored-By` e o PR sai sem o rodapé do Claude Code.
 
 ## 2. Lint, testes e o que o CI faz diferente
 
@@ -63,7 +64,7 @@ Se o histórico (`git log --oneline -15`) ou o commitlint usa outro padrão, sig
 
 - **Base:** a branch padrão, ou `develop`/`staging` se o time faz PR para ela.
 - **Título:** formato de commit, ou o formato do CONTRIBUTING.
-- **Descrição:** se o repo tem template, preencha todas as seções. Senão: `## Resumo` (o que e por quê, para quem não viu o código), `## Mudanças`, `## Como testar` (passos concretos no preview) e `## Checklist` com o que realmente rodou. Termine com `🤖 Gerado com [Claude Code](https://claude.com/claude-code)`.
+- **Descrição:** se o repo tem template, preencha todas as seções. Senão: `## Resumo` (o que e por quê, para quem não viu o código), `## Mudanças`, `## Como testar` (passos concretos no preview) e `## Checklist` com o que realmente rodou. Termine com `🤖 Gerado com [Claude Code](https://claude.com/claude-code)`, a não ser que o usuário ou o projeto peça sem atribuição (etapa 1).
 - Escreva o corpo num arquivo temporário e passe com `--body-file` (ou `"$(cat arquivo)"`), para preservar quebras de linha e acentos no Windows.
 
 ## 5. Acompanhar o preview
