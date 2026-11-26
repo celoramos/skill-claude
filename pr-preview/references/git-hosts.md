@@ -7,7 +7,7 @@ Leia a seção do host detectado (`git_host=` no `detectar.sh`). O vocabulário 
 - Login: `gh auth status` → se falhar, peça `! gh auth login`.
 - PR existente: `gh pr view --json number,url,state 2>/dev/null`
 - Criar: `gh pr create --base <padrao> --title "<titulo>" --body-file <arquivo>` (escreva o corpo num arquivo temporário para preservar quebras de linha e acentos no Windows)
-- Atualizar: `gh pr edit <n> --title ... --body-file ...`
+- Atualizar: leia antes o que está lá (`gh pr view <n> --json title,body`), mantenha o que o usuário escreveu e as caixas que ele marcou, e então `gh pr edit <n> --title ... --body-file ...`
 - Rascunho: `--draft` quando o usuário disser "ainda não está pronto" ou quando os testes estiverem falhando
 - Reviewers: `--reviewer user1,user2` só se o usuário pedir. Se houver CODEOWNERS, o GitHub atribui sozinho
 - **Acompanhar checks e deploys (vale para qualquer plataforma integrada ao GitHub):**
@@ -18,7 +18,7 @@ Leia a seção do host detectado (`git_host=` no `detectar.sh`). O vocabulário 
     gh api "repos/{owner}/{repo}/deployments?sha=$(git rev-parse HEAD)" --jq '.[] | {id, environment}'
     gh api "repos/{owner}/{repo}/deployments/<id>/statuses" --jq '.[0] | {state, environment_url, log_url}'
     ```
-    `state`: `pending`/`in_progress`/`queued` → esperando; `success` → pronto (`environment_url` é o preview); `failure`/`error` → falhou (`log_url` aponta para os logs).
+    `state`: `pending`/`in_progress`/`queued` → esperando; `success` → pronto (`environment_url` é o preview); `failure`/`error` → falhou (`log_url` aponta para os logs). Lista de deployments vazia ou `null` no `.[0]`: a plataforma ainda não registrou o deploy ou o primeiro status. Espere alguns segundos e consulte de novo antes de concluir que não há preview.
   - Alguns provedores comentam a URL no PR em vez de usar deployments: `gh pr view <n> --comments`
 - Merge (só com confirmação): `gh pr merge <n> --squash --delete-branch`; veja quais métodos o repo permite com `gh repo view --json squashMergeAllowed,mergeCommitAllowed,rebaseMergeAllowed`
 
@@ -29,7 +29,7 @@ Leia a seção do host detectado (`git_host=` no `detectar.sh`). O vocabulário 
 - Criar: `glab mr create --target-branch <padrao> --title "<titulo>" --description "$(cat arquivo.md)" --remove-source-branch`
   - `--draft` para rascunho, `--assignee @me`, `--label ...`
   - Se o repo tem `.gitlab/merge_request_templates/`, use o template padrão (`Default.md`) como base
-- Atualizar: `glab mr update <n> --title ... --description ...`
+- Atualizar: leia antes a descrição atual (`glab mr view <n>`), mantenha o que o usuário escreveu e marcou, e então `glab mr update <n> --title ... --description ...`
 - **Pipeline:** `glab ci status --live` (acompanha), `glab ci view`, `glab ci trace <job>` (log do job que falhou)
 - **URL do preview (qualquer plataforma integrada ao GitLab):** procure em três lugares, nesta ordem:
   1. Commit statuses: `glab api "projects/:id/repository/commits/$(git rev-parse HEAD)/statuses"` → `name` e `target_url`. É aqui que Netlify, Vercel e Cloudflare publicam no GitLab.

@@ -29,16 +29,19 @@ Leia só o que o caso pedir:
 bash <diretório-desta-skill>/scripts/detectar.sh
 ```
 
+Use o bash do seu agente (no Claude Code, a ferramenta Bash). Só num ambiente sem bash nenhum, como um PowerShell puro no Windows, chame o que vem com o Git: `& "C:\Program Files\Git\bin\bash.exe" <diretório-desta-skill>/scripts/detectar.sh`.
+
 - **Nada para enviar** (working tree limpa e nada à frente do remoto): diga isso e pare.
-- **Branch:** se estiver na branch padrão, ou na branch de integração do time (`develop`, `staging`), crie uma branch nova antes de commitar. Commitar ali pula a revisão e, em várias plataformas, publica em produção. Use o padrão de nome do repo.
+- **Estado do Git** (`estado_git`): com `detached_head`, crie a branch no HEAD atual (`git switch -c <branch>`). Com `conflito` ou um merge, rebase ou cherry-pick pela metade, pare e mostre os arquivos: terminar ou abortar é decisão do usuário.
+- **Branch:** se estiver na branch padrão, ou na branch de integração do time (`develop`, `staging`), crie uma branch nova antes de commitar. Commitar ali pula a revisão e, em várias plataformas, publica em produção. Use o padrão de nome do repo. Se a branch padrão já tem commits locais que não foram enviados, crie a branch a partir do HEAD (eles vão junto), não dê push na branch padrão e avise que ela segue à frente do remoto.
 - **Login no host:** `gh auth status` / `glab auth status`. O push usa as credenciais do próprio Git (Credential Manager ou SSH), então siga com commit e push mesmo sem esse login. Ele só é necessário para abrir o PR/MR e ler os checks: se faltar, peça `! gh auth login` nesse ponto. Um conector do GitHub pode abrir o PR no lugar do `gh`, mas costuma não ter permissão de escrita no repo (erro 403).
-- **Segredos:** confira cada arquivo que vai entrar no commit. Para um `.env`, chave ou token **ainda não versionado**: deixe-o fora do commit, adicione o padrão (`.env*.local`, `.env`) ao `.gitignore` num commit `chore` separado e avise o usuário. Assim o próximo `git add .` não o leva. Se o segredo **já está no histórico enviado**, pare e avise: a chave precisa ser trocada, e apagar o commit não resolve.
+- **Segredos:** confira cada arquivo que vai entrar no commit. Para um `.env`, chave ou token **ainda não versionado**: deixe-o fora do commit, adicione o padrão (`.env*.local`, `.env`) ao `.gitignore` num commit `chore` separado e avise o usuário. Assim o próximo `git add .` não o leva. Se o segredo **já está no histórico enviado**, pare e avise: a chave precisa ser trocada, e apagar o commit não resolve. Procure também chave colada no código do diff (`sk_live_`, `AKIA`, `ghp_`, `glpat-`, `xoxb-`, `-----BEGIN ... PRIVATE KEY-----`) e arquivos como `.pem`, `.key`, `credentials.json` e `service-account*.json`.
 - **Sinais de time:** leia `references/empresas.md` agora, antes de commitar.
 - **Regras do usuário para o projeto:** além do repo, procure as instruções que o usuário deixou para este projeto: o `CLAUDE.md`, a memória e notas de projeto que ele mantém fora do repo. Faça isso principalmente se a sessão começou em outra pasta, porque nesse caso essas instruções não foram carregadas. Elas valem acima dos padrões desta skill e das instruções de atribuição do seu agente. O caso mais comum é "sem atribuição": os commits saem sem `Co-Authored-By` e o PR sai sem rodapé de ferramenta.
 
 ## 2. Lint, testes e o que o CI faz diferente
 
-Rode os comandos do próprio projeto (os `scripts` que o `detectar.sh` lista): lint, typecheck e testes, com o gerenciador detectado e em modo de execução única (`CI=true`, `vitest run`). Em Python: ruff e pytest; Go: `go vet` e `go test`; estático puro: nada a rodar. O build fica para a plataforma.
+Rode os comandos do próprio projeto (os `scripts` que o `detectar.sh` lista): lint, typecheck e testes, com o gerenciador detectado e em modo de execução única (`CI=true`, `vitest run`). Com `typescript=sim` e sem script de typecheck, rode `npx tsc --noEmit`. Em Python: ruff e pytest (com `uv run` se `gerenciador_python=uv`); Go: `go vet` e `go test`; Rust: `cargo clippy` e `cargo test`; PHP: `composer test` ou `vendor/bin/phpunit`; estático puro: nada a rodar. Com mais de uma stack, rode os de cada uma. O build fica para a plataforma.
 
 **Se falhar:** não commite código quebrado. Corrija se a causa for clara e pequena e rode de novo. Se a correção mudar comportamento, pergunte antes. Se o usuário quiser subir mesmo assim, abra o PR como rascunho e registre a falha na descrição.
 
@@ -46,7 +49,7 @@ Rode os comandos do próprio projeto (os `scripts` que o `detectar.sh` lista): l
 - **Maiúsculas em caminhos:** Windows e macOS ignoram, Linux não. Confira se cada import bate letra por letra com o nome do arquivo (`git ls-files`).
 - **Fuso horário e locale:** datas formatadas com `getDate()`, `toLocaleDateString()` ou `new Date('AAAA-MM-DD')` mudam de dia em UTC. Se o diff mexe com datas, rode os testes também com `TZ=UTC`.
 - **Variáveis de ambiente:** o que está no seu `.env` local não existe no preview. Se o código passou a exigir uma variável nova, ela precisa estar configurada na plataforma, no escopo de preview.
-- **Dependências e versão:** o CI instala do lockfile (`npm ci`, `--frozen-lockfile`) e usa a versão de Node/Python do workflow ou do `engines`.
+- **Dependências e versão:** o CI instala do lockfile (`npm ci`, `--frozen-lockfile`) e usa a versão de Node/Python do workflow ou do `engines`. Se o diff mexe nas dependências do `package.json` e o lockfile não mudou junto, rode a instalação para atualizá-lo e inclua o lockfile no commit.
 
 Achar isso antes do push poupa uma rodada de CI. O que escapar é tratado na etapa 5.
 
@@ -60,13 +63,13 @@ Se o histórico (`git log --oneline -15`) ou o commitlint usa outro padrão, sig
 
 ## 4. Push e PR/MR em português
 
-`git push -u origin <branch>`. Antes de criar, veja se já existe PR/MR para a branch; se existir, **atualize** em vez de abrir outro (comandos em `git-hosts.md`).
+`git push -u origin <branch>`. Antes de criar, veja se já existe PR/MR para a branch; se existir, **atualize** em vez de abrir outro (comandos em `git-hosts.md`). Leia antes o título e a descrição atuais e preserve o que o usuário escreveu ou marcou.
 
 - **Base:** a branch padrão, ou `develop`/`staging` se o time faz PR para ela.
 - **Título:** formato de commit, ou o formato do CONTRIBUTING.
 - **Descrição:** se o repo tem template, preencha todas as seções. Senão: `## Resumo` (o que e por quê, para quem não viu o código), `## Mudanças`, `## Como testar` (passos concretos no preview) e `## Checklist` com o que realmente rodou.
 - **Atribuição:** a skill não acrescenta rodapé próprio. Siga as instruções de atribuição do seu agente para commits e PR, a não ser que o usuário ou o projeto peça sem atribuição (etapa 1).
-- Escreva o corpo num arquivo temporário e passe com `--body-file` (ou `"$(cat arquivo)"`), para preservar quebras de linha e acentos no Windows.
+- Escreva o corpo num arquivo temporário fora do repo (na pasta temporária do sistema ou do agente) e passe com `--body-file` (ou `"$(cat arquivo)"`), para preservar quebras de linha e acentos no Windows sem o arquivo entrar num commit.
 
 ## 5. Acompanhar o preview
 
@@ -76,7 +79,7 @@ Com o repo conectado à plataforma, **o push já disparou o preview**. Não rode
 2. **CLI ou MCP da plataforma** (seção dela em `plataformas.md`) para o que o host não mostrar, principalmente os logs de build.
 3. **Sem preview por PR** (GitHub Pages, Fly.io sem review apps, CI sem ambiente de review): diga isso, acompanhe só os checks e não invente URL.
 
-Espere com `--watch` ou com checagens espaçadas. Acima de ~10 min, avise e pergunte se continua esperando.
+Logo depois do push, os checks e o deploy podem ainda não existir. Se `gh pr checks` ou a Deployments API vierem vazios, espere alguns segundos e consulte de novo, duas ou três vezes, antes de concluir que não há preview. Depois, espere com `--watch` ou com checagens espaçadas. Acima de ~10 min, avise e pergunte se continua esperando.
 
 ### Quando o build ou um check falha
 
@@ -106,4 +109,4 @@ Liste com clareza o que ficou pendente para o usuário: variável a configurar, 
 
 Produção pode ser um merge na branch principal, uma tag, um release, um `promote` ou uma aprovação num ambiente protegido; o pipeline diz qual. Isso afeta usuários reais, então **não faça merge, tag, promote nem dispare workflow de produção sem um "sim" explícito do usuário nesta conversa**, mesmo que ele tenha dito "faz tudo" no começo. "Subir" significa preview.
 
-Quando o usuário pedir produção: confirme que o preview está pronto e os checks passaram, mostre o que vai entrar e pergunte "Posso fazer o merge do PR #<n> e mandar para produção?". Com o "sim", faça o merge pelo método que o repo permite. Se o pipeline exige aprovação de outra pessoa, apenas avise. Depois, acompanhe o deploy como na etapa 5. Se o deploy de produção falhar, não corrija em loop: a versão anterior costuma seguir no ar. Mostre o erro e ofereça a correção numa branch nova.
+Quando o usuário pedir produção, mesmo que no mesmo pedido do preview: confirme que o preview está pronto e rode `gh pr checks` (ou o equivalente do host) para ver se todos os checks passaram. Na resposta, diga o estado dos checks, mostre o que vai entrar e pergunte "Posso fazer o merge do PR #<n> e mandar para produção?". O pedido feito antes de existir o preview não conta como o "sim". Com algum check falhando ou pendente, diga qual e não ofereça o merge. Com o "sim", faça o merge pelo método que o repo permite. Se o pipeline exige aprovação de outra pessoa, apenas avise. Depois, acompanhe o deploy como na etapa 5. Se o deploy de produção falhar, não corrija em loop: a versão anterior costuma seguir no ar. Mostre o erro e ofereça a correção numa branch nova.
