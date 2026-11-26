@@ -1,0 +1,22 @@
+[
+  {"query": "terminei o filtro de busca no componente ProductList (src/components/ProductList.tsx), sobe isso pra eu ver no preview da vercel antes de mostrar pro cliente", "should_trigger": true},
+  {"query": "commita tudo e abre o PR pra main, quero mandar o link pro pessoal do financeiro testar amanhã cedo", "should_trigger": true},
+  {"query": "ok o fix do header sobrepondo o conteúdo no mobile ta pronto. manda pro ar", "should_trigger": true},
+  {"query": "pode fazer o deploy das mudanças que fiz no checkout? é um projeto Next na Vercel, repo no GitHub, mas NÃO quero que vá pra produção ainda", "should_trigger": true},
+  {"query": "abre o MR no gitlab com essas alterações do formulário de cadastro. o time usa commitlint e tem template de MR, e o ticket é PAY-482 no jira", "should_trigger": true},
+  {"query": "can you push this and open a PR? want to check the netlify deploy preview before I show it to my manager", "should_trigger": true},
+  {"query": "o build do preview na cloudflare pages quebrou depois do meu último push na branch feat/agenda, dá uma olhada nos logs e corrige", "should_trigger": true},
+  {"query": "quero ver no ar o que eu mexi hoje no Fretai, a api roda no Render com preview por PR. faz tudo aí, commit, PR, tudo", "should_trigger": true},
+  {"query": "commita e envia, depois me passa o link do preview e o do PR", "should_trigger": true},
+  {"query": "mudei o texto da landing e o card de preços, envia isso pra revisão do time (a empresa usa Azure DevOps)", "should_trigger": true},
+  {"query": "revisa o PR #57 do Code-Scope e deixa comentários nas partes que mexem no adapter java", "should_trigger": false},
+  {"query": "escreve só a mensagem de commit pra esse diff, em português, eu mesmo commito depois", "should_trigger": false},
+  {"query": "configura um workflow do GitHub Actions que roda eslint e vitest em todo pull request do repo", "should_trigger": false},
+  {"query": "como eu coloco um domínio próprio (meunome.dev) no meu portfólio que já tá na Vercel?", "should_trigger": false},
+  {"query": "o site em produção na vercel tá dando erro 500 na rota /api/pedidos desde ontem à noite, olha os runtime logs e me diz o que é", "should_trigger": false},
+  {"query": "cria um repositório novo no GitHub chamado agenda-consultorio e faz o primeiro push desse projeto", "should_trigger": false},
+  {"query": "resolve os conflitos de merge da minha branch feat/verificacao-facial com a main, deu conflito no pom.xml e no AuthService", "should_trigger": false},
+  {"query": "roda os testes do Code-Scope e me diz quais estão falhando e por quê", "should_trigger": false},
+  {"query": "gera o CHANGELOG da 0.9.3 a partir dos commits e cria a tag v0.9.3 pra disparar o workflow de release", "should_trigger": false},
+  {"query": "meu git ta todo bagunçado, faz um stash das mudanças, troca pra develop e puxa o que tem de novo", "should_trigger": false}
+]

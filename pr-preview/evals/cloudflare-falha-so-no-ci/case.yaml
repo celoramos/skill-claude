@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: cloudflare-falha-so-no-ci
+expected_outcome: |
+  Repo no GitHub com preview do Cloudflare Pages via GitHub Actions. A função de data usa getDate() e o teste espera o dia no horário de Brasília: passa na máquina local (UTC-3) e falha no CI, que roda em UTC. Esperado: o CI final passa com o teste original mantido, a correção fica no código (fuso explícito) e não em fixar TZ no script, a causa é explicada, tudo fica num PR só, a URL do preview pages.dev é informada e não há deploy manual nem merge.

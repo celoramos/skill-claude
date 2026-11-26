@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: gitlab-netlify-regras-do-time
+expected_outcome: |
+  Repo de empresa no GitLab + Netlify, usuário em develop. CONTRIBUTING exige branch feature/PAINEL-<n>-..., MR para develop com título [PAINEL-<n>] ..., template de MR e label revisao-pendente; hook de commit exige escopo permitido e rodapé Refs: PAINEL-<n>. Esperado: seguir todas as regras do repo, sem --no-verify, e informar a URL do Deploy Preview do Netlify.

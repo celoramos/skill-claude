@@ -1,0 +1,8 @@
+[
+  {"query": "fiz as alterações no dark mode do dashboard, joga isso num PR que eu quero ver o deploy preview do netlify", "should_trigger": true},
+  {"query": "pode subir minhas mudanças do carrinho? quero o link pra testar no celular", "should_trigger": true},
+  {"query": "push this to a new branch and open a merge request on gitlab, the pipeline should spin up a review app", "should_trigger": true},
+  {"query": "explica a diferença entre git rebase e git merge, qual eu devo usar no meu time de 4 pessoas?", "should_trigger": false},
+  {"query": "lista os PRs abertos no Code-Scope que estão esperando a minha revisão", "should_trigger": false},
+  {"query": "configura o vercel.json pra redirecionar /blog pra /artigos sem quebrar os links antigos", "should_trigger": false}
+]
