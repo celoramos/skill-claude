@@ -9,6 +9,8 @@ set -u
 cd "${1:-.}" || exit 1
 
 out() { printf '%s=%s\n' "$1" "$2"; }
+# Verdadeiro se existe pelo menos um dos caminhos (globs incluídos). "ls a b" falha se faltar qualquer um.
+algum() { for f in "$@"; do [ -e "$f" ] && return 0; done; return 1; }
 
 # ---------- Repositório ----------
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -27,14 +29,26 @@ case "$remote" in
 esac
 out git_host "$host"
 out remote "$remote"
-out branch_atual "$(git branch --show-current 2>/dev/null)"
+branch=$(git branch --show-current 2>/dev/null)
+out branch_atual "$branch"
+
+# O que pede atenção antes de commitar: HEAD solto, conflito, merge, rebase ou cherry-pick pela metade.
+estado=""
+gd=$(git rev-parse --git-dir)
+[ -z "$branch" ] && estado="$estado detached_head"
+{ [ -d "$gd/rebase-merge" ] || [ -d "$gd/rebase-apply" ]; } && estado="$estado rebase_em_andamento"
+[ -f "$gd/MERGE_HEAD" ] && estado="$estado merge_em_andamento"
+[ -f "$gd/CHERRY_PICK_HEAD" ] && estado="$estado cherry_pick_em_andamento"
+[ -n "$(git diff --name-only --diff-filter=U 2>/dev/null)" ] && estado="$estado conflito"
+estado=$(echo "$estado" | xargs)
+out estado_git "${estado:-normal}"
 
 padrao=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')
 [ -z "$padrao" ] && for b in main master develop; do
   git show-ref --verify --quiet "refs/remotes/origin/$b" && { padrao=$b; break; }
 done
 # Repo sem fetch ainda: cai para a branch local
-[ -z "$padrao" ] && for b in main master; do
+[ -z "$padrao" ] && for b in main master develop; do
   git show-ref --verify --quiet "refs/heads/$b" && { padrao=$b; break; }
 done
 out branch_padrao "${padrao:-desconhecida}"
@@ -45,7 +59,7 @@ add() { plataformas="$plataformas $1"; }
 
 { [ -f vercel.json ] || [ -f .vercel/project.json ]; } && add vercel
 { [ -f netlify.toml ] || [ -f .netlify/state.json ]; } && add netlify
-ls wrangler.toml wrangler.json wrangler.jsonc >/dev/null 2>&1 && add cloudflare
+algum wrangler.toml wrangler.json wrangler.jsonc && add cloudflare
 { [ -f render.yaml ] || [ -f render.yml ]; } && add render
 { [ -f railway.json ] || [ -f railway.toml ]; } && add railway
 [ -f fly.toml ] && add fly
@@ -75,48 +89,66 @@ plataformas=$(echo "$plataformas" | xargs)
 out plataformas "${plataformas:-nenhuma_detectada}"
 
 # ---------- Stack / comandos ----------
+# Nomes dos scripts do package.json. Com node ou python, lê o JSON de verdade. Sem eles, o grep
+# preserva "test:unit", mas para no primeiro "}" dentro de um valor (como em "src/**/*.{ts,tsx}").
+scripts_do_package() {
+  node -e 'const p=JSON.parse(require("fs").readFileSync("package.json","utf8"));console.log(Object.keys(p.scripts||{}).join(" "))' 2>/dev/null && return
+  python3 -c 'import json;print(" ".join(json.load(open("package.json",encoding="utf-8")).get("scripts",{})))' 2>/dev/null && return
+  tr -d '\n\r' < package.json \
+    | grep -oE '"scripts"[[:space:]]*:[[:space:]]*\{[^}]*\}' \
+    | sed -E 's/^"scripts"[[:space:]]*:[[:space:]]*\{//' \
+    | grep -oE '"[^"]+"[[:space:]]*:' | sed -E 's/^"(.*)"[[:space:]]*:$/\1/' | xargs
+}
+
+# Um repo pode ter mais de uma stack (front em Node e API em Python, por exemplo).
+stacks=""
 if [ -f package.json ]; then
+  stacks=node
   if   [ -f pnpm-lock.yaml ]; then pm=pnpm
   elif [ -f yarn.lock ]; then pm=yarn
   elif [ -f bun.lockb ] || [ -f bun.lock ]; then pm=bun
   else pm=npm; fi
-  out stack node
   out gerenciador "$pm"
-  scripts=$(tr -d '\n\r' < package.json \
-    | grep -oE '"scripts"[[:space:]]*:[[:space:]]*\{[^}]*\}' \
-    | sed -E 's/^"scripts"[[:space:]]*:[[:space:]]*\{//' \
-    | grep -oE '"[^"]+"[[:space:]]*:' | tr -d '":' | xargs)
-  out scripts "$scripts"
+  out scripts "$(scripts_do_package)"
   [ -f tsconfig.json ] && out typescript sim
-elif ls pyproject.toml requirements.txt setup.py >/dev/null 2>&1; then
-  out stack python
-  [ -f uv.lock ] && out gerenciador uv
-  [ -f poetry.lock ] && out gerenciador poetry
-elif [ -f go.mod ]; then out stack go
-elif [ -f Cargo.toml ]; then out stack rust
-elif [ -f composer.json ]; then out stack php
-elif [ -f Gemfile ]; then out stack ruby
-elif ls ./*.html >/dev/null 2>&1; then out stack estatico
-else out stack desconhecida; fi
+fi
+if algum pyproject.toml requirements.txt setup.py; then
+  stacks="$stacks python"
+  [ -f uv.lock ] && out gerenciador_python uv
+  [ -f poetry.lock ] && out gerenciador_python poetry
+fi
+[ -f go.mod ] && stacks="$stacks go"
+[ -f Cargo.toml ] && stacks="$stacks rust"
+[ -f composer.json ] && stacks="$stacks php"
+[ -f Gemfile ] && stacks="$stacks ruby"
+[ -z "$stacks" ] && algum ./*.html && stacks=estatico
+stacks=$(echo "$stacks" | xargs)
+out stack "${stacks:-desconhecida}"
 
 # ---------- Convenções do repositório (importantes em empresas) ----------
 for f in .github/pull_request_template.md .github/PULL_REQUEST_TEMPLATE.md docs/pull_request_template.md PULL_REQUEST_TEMPLATE.md; do
   [ -f "$f" ] && { out template_pr "$f"; break; }
 done
-ls .github/PULL_REQUEST_TEMPLATE/*.md >/dev/null 2>&1 && out templates_pr_multiplos .github/PULL_REQUEST_TEMPLATE/
-ls .gitlab/merge_request_templates/*.md >/dev/null 2>&1 && out template_mr .gitlab/merge_request_templates/
+algum .github/PULL_REQUEST_TEMPLATE/*.md && out templates_pr_multiplos .github/PULL_REQUEST_TEMPLATE/
+algum .gitlab/merge_request_templates/*.md && out template_mr .gitlab/merge_request_templates/
 for f in CONTRIBUTING.md .github/CONTRIBUTING.md docs/CONTRIBUTING.md; do
   [ -f "$f" ] && { out contributing "$f"; break; }
 done
 for f in .github/CODEOWNERS CODEOWNERS docs/CODEOWNERS .gitlab/CODEOWNERS; do
   [ -f "$f" ] && { out codeowners "$f"; break; }
 done
-ls commitlint.config.* .commitlintrc* >/dev/null 2>&1 && out commitlint sim
+algum commitlint.config.* .commitlintrc* && out commitlint sim
 { [ -d .husky ] || [ -f .pre-commit-config.yaml ] || [ -f lefthook.yml ]; } && out hooks_git sim
 [ -f .changeset/config.json ] && out changesets sim
 
-# Ticket no nome das branches recentes (ex.: feat/PROJ-123-algo) -> Jira/Linear
-ticket=$(git branch -r 2>/dev/null | grep -oE '[A-Z][A-Z0-9]+-[0-9]+' | head -1)
+# Ticket do Jira/Linear (PROJ-123) no nome das branches, locais e remotas (ex.: feat/PROJ-123-algo).
+ticket=$(git branch -a --format='%(refname:short)' 2>/dev/null | grep -oE '[A-Z][A-Z0-9]+-[0-9]+' | head -1)
 [ -n "$ticket" ] && out exemplo_ticket_em_branch "$ticket"
+# Nos commits recentes, só no começo da linha, entre parênteses ou colchetes e depois de Refs:/Closes:.
+# Solto no meio do texto, UTF-8 e SHA-256 seriam confundidos com ticket.
+ticket=$(git log -15 --format=%B 2>/dev/null \
+  | grep -oE '^\[?[A-Z][A-Z0-9]+-[0-9]+|[([][A-Z][A-Z0-9]+-[0-9]+[])]|^(Refs|Ref|Closes|Fixes|Resolves):? *[A-Z][A-Z0-9]+-[0-9]+' \
+  | grep -oE '[A-Z][A-Z0-9]+-[0-9]+' | head -1)
+[ -n "$ticket" ] && out exemplo_ticket_em_commit "$ticket"
 
 exit 0
