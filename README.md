@@ -85,3 +85,7 @@ node testes/harness/run_trigger.js --eval-set testes/trigger/eval_set.json --ski
 ```
 
 A descrição atual acionou certo em 24 das 26 frases. Duas reescritas foram testadas e ficaram em 23.
+
+## Licença
+
+[MIT](LICENSE).
